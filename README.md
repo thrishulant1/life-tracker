@@ -1,55 +1,141 @@
 # Life Tracker
 
-A personal 24-hour time tracker built as a single HTML file. No server, no login, no app store. Works offline and installs on your phone home screen.
+A personal 24-hour time tracker built as a single HTML file. No server, no login, no app store needed. Works fully offline and installs on your phone home screen like a native app.
+
+**Live:** https://thrishulant1.github.io/life-tracker
+
+---
 
 ## What it does
 
+Track every 15 minutes of your day, see where your time actually goes, and get a daily productivity score — all stored privately on your device.
+
+---
+
+## Features
+
+### Day View
 - 24-hour grid — every 15-minute slot of your day laid out visually
-- Tap a slot to log what you were doing
-- Hold and drag to select many slots at once (e.g. 8 hours of sleep in one move)
-- Timer mode — classic 15-minute countdown with log prompt
-- Week view — see your full week at a glance
-- Insights — 7-day and 30-day bar charts per category
-- Sleep warning — if you sleep more than 8 hours, excess counts as wasted time
-- All data saved locally on your device (no internet needed after first load)
+- Tap a slot to assign a category (Office, Coding, Sleeping, etc.)
+- Hold and drag across multiple slots to assign them all at once
+- Long-press a filled slot to edit or clear it
+- Action bar appears when slots are selected — assign or clear in bulk
+- One-tap button to fill all remaining empty slots as Sleep
+- Live clock showing current time and current 15-min slot
+- Swipe left/right to navigate between days
 
-## Categories
+### Timer Mode
+- Built-in 15-minute countdown timer (Pomodoro-style)
+- When it finishes, prompts you to log what you worked on
 
-| Category   | Type       |
-|------------|------------|
-| Office     | Productive |
-| Coding     | Productive |
-| Learning   | Productive |
-| Emails/msg | Productive |
-| Scrolling  | Wasted     |
-| Sleeping   | Sleep      |
-| Break/food | Neutral    |
-| Personal   | Neutral    |
+### Week View
+- See your full week at a glance — one card per day
+- Per-category time bars showing how you spent each day
+- 30-day productivity heatmap (darker = more productive)
+- Click any heatmap cell to jump to that day
+- Navigate to previous weeks
 
-## How to use on your phone
+### Insights
+- 7-day and 30-day bar charts per category
+- Total hours, daily average, and peak day for each category
+- Tap any bar to see the full breakdown for that day
+- Navigate to previous months
 
-1. Open the GitHub Pages link in Safari (iPhone) or Chrome (Android)
-2. Tap Share → "Add to Home Screen"
+### Scoring System
+- Daily score = Productive time / (Productive + Wasted) × 100
+- Weekly score = average of last 7 days, shown on the Day page
+- Streak counter — consecutive days you've logged anything
+- Comparison to last week (up/down arrow)
+
+### Settings
+- Dark / light mode toggle
+- Sleep warning — excess sleep over 8h counts as wasted time
+- Custom categories — add your own with name, color, and type
+- Edit any existing category
+- Year progress grid — 365 boxes, today highlighted in orange
+- Export all data as CSV (open in Google Sheets for charts)
+- Import CSV to restore from a backup
+- Clear all data
+
+---
+
+## Scoring Rules
+
+| Category   | Type       | Rule |
+|------------|------------|------|
+| Office     | Productive | Always counts positively |
+| Coding     | Productive | Always counts positively |
+| Learning   | Productive | Always counts positively |
+| Emails/msg | Productive | Always counts positively |
+| Sleeping   | Sleep      | 0–8h = productive, over 8h = wasted |
+| Breakfast  | Meal       | Combined meals up to 1h/day = productive, over = wasted |
+| Dinner     | Meal       | Combined meals up to 1h/day = productive, over = wasted |
+| Break      | Break      | Up to 1h/day = productive, over = wasted |
+| Personal   | Personal   | Up to 1h/day = productive, over = wasted |
+| Home help  | Neutral    | Not counted in score at all |
+| Scrolling  | Wasted     | Always pulls score down |
+
+---
+
+## How to install on your phone
+
+**iPhone:**
+1. Open https://thrishulant1.github.io/life-tracker in Safari
+2. Tap the Share button → "Add to Home Screen"
 3. Opens like a native app, works fully offline
+
+**Android:**
+1. Open the link in Chrome
+2. Tap the three-dot menu → "Add to Home Screen"
+3. Same result — works offline
+
+---
 
 ## Roadmap
 
-- [ ] Swipe left/right to change day
-- [ ] Monthly heatmap (like GitHub contribution graph)
-- [ ] Custom categories
-- [ ] Weekly productivity score
-- [ ] CSV export
-- [ ] Convert to iOS/Android app via Capacitor
-- [ ] Streak counter
+**Fixes**
+- [ ] Live clock flicker on first load
+- [ ] Smoother drag-select on touch screens
 
-## Tech
+**Upcoming features**
+- [ ] JSON backup and restore (safer than CSV)
+- [ ] Daily goal — set a target score % and see if you hit it
+- [ ] Monthly calendar view (proper calendar layout)
+- [ ] Reminder notification — "log your last 15 minutes"
+- [ ] Copy yesterday's schedule to today
+- [ ] Weekly auto-summary report
+- [ ] Convert to iOS app using Capacitor
+- [ ] Convert to Android app using Capacitor
+- [ ] Google Drive / iCloud sync
 
-Pure HTML + CSS + JavaScript. Zero dependencies. Zero frameworks. Single file.
-Data stored in `localStorage` on the device.
+---
 
-## Converting to a native app
+## Tech Stack
 
-This can be wrapped into a real iOS/Android app using [Capacitor](https://capacitorjs.com):
+| What | How |
+|---|---|
+| Language | Pure HTML + CSS + JavaScript |
+| Frameworks | None — zero dependencies |
+| Data storage | `localStorage` on the device |
+| Hosting | GitHub Pages (free) |
+| File count | 1 (`index.html`) |
+
+---
+
+## File Structure
+
+```
+life-tracker/
+├── index.html     ← entire app (HTML + CSS + JS in one file)
+├── README.md      ← this file
+└── CONTEXT.md     ← project context for AI assistants
+```
+
+---
+
+## Converting to a Native App (future plan)
+
+The app is designed to eventually be wrapped into a real iOS/Android app using [Capacitor](https://capacitorjs.com):
 
 ```bash
 npm install @capacitor/core @capacitor/cli
@@ -58,8 +144,14 @@ npx cap add ios
 npx cap add android
 ```
 
-Then copy `index.html` into the `www/` folder and build.
+Copy `index.html` into the `www/` folder and build. The localStorage data model will carry over directly.
+
+---
 
 ## License
 
 MIT — free to use, modify, and build on.
+
+---
+
+*Built by Thrishula N T — learning to build apps one feature at a time.*
