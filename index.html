@@ -740,30 +740,48 @@ function renderGrid(){
 // ===== TOUCH / MOUSE =====
 let touchId=null;
 let longPressKey=null;
+let touchStartX=0,touchStartY=0,touchIntent=null; // null=undecided, 'scroll', 'select'
 
 function tStart(e){
   const key=this.dataset.key;
   touchId=e.touches[0].identifier;
+  touchStartX=e.touches[0].clientX;
+  touchStartY=e.touches[0].clientY;
   dragging=false;
+  touchIntent=null;
   longPressKey=key;
-  // add first slot immediately to selection
-  sel.add(key);
-  updateSlotVis();updateActionBar();
+  // Do NOT select yet — wait to see if it's a scroll or tap/drag
   longPressTimer=setTimeout(()=>{
-    // if user hasn't moved (still only 1 slot selected = tap, not drag)
-    if(sel.size<=1){
+    if(touchIntent==='scroll')return;
+    // Long press: open edit if slot is filled
+    const entry=ld(ds(vDate))[key];
+    if(entry){
       sel.clear();updateSlotVis();updateActionBar();
       longPressKey=null;
-      const entry=ld(ds(vDate))[key];
-      if(entry) openSlotEdit(key,entry);
+      openSlotEdit(key,entry);
     }
   },600);
 }
 function tMove(e){
-  if(longPressTimer){clearTimeout(longPressTimer);longPressTimer=null;}
-  dragging=true;
   const t=Array.from(e.touches).find(x=>x.identifier===touchId);
   if(!t)return;
+  const adx=Math.abs(t.clientX-touchStartX);
+  const ady=Math.abs(t.clientY-touchStartY);
+  // Determine intent on first significant movement
+  if(touchIntent===null&&(adx>6||ady>6)){
+    touchIntent=ady>adx?'scroll':'select';
+    if(touchIntent==='scroll'){
+      // Cancel long press — let native scroll take over
+      if(longPressTimer){clearTimeout(longPressTimer);longPressTimer=null;}
+      sel.clear();updateSlotVis();updateActionBar();
+      return;
+    }
+    // Horizontal drag — begin selection
+    if(longPressTimer){clearTimeout(longPressTimer);longPressTimer=null;}
+    dragging=true;
+    sel.add(longPressKey);updateSlotVis();updateActionBar();
+  }
+  if(touchIntent!=='select')return;
   const el=document.elementFromPoint(t.clientX,t.clientY);
   const slot=el?.closest('.slot');
   if(slot&&slot.dataset.key&&!sel.has(slot.dataset.key)){
@@ -772,22 +790,25 @@ function tMove(e){
 }
 function tEnd(){
   if(longPressTimer){clearTimeout(longPressTimer);longPressTimer=null;}
-  // if only 1 slot selected and not a long press, open sheet as single tap
-  if(!dragging&&sel.size===1){
-    const key=Array.from(sel)[0];
+  if(touchIntent==='scroll'){dragging=false;touchIntent=null;longPressKey=null;return;}
+  // Tap: no movement or only 1 slot selected by horizontal nudge
+  if(!dragging||(touchIntent==='select'&&sel.size<=1)){
+    const key=longPressKey||(sel.size===1?Array.from(sel)[0]:null);
     sel.clear();updateSlotVis();updateActionBar();
-    singleKey=key;sheetMode='single';sheetCat=null;
-    const [hh,mm]=key.split(':').map(Number);
-    const eM=(mm+15)%60,eH=mm+15>=60?hh+1:hh;
-    g('sh-title').textContent=fmt12(hh)+':'+pad(mm)+' – '+fmt12(eH)+':'+pad(eM);
-    g('sh-sub').textContent='What were you doing?';
-    const entry=ld(ds(vDate))[key];
-    g('sh-note').value=entry?.note||'';
-    buildCats(entry?.cat);
-    g('sh-clear').style.display='flex';
-    openSheet();
+    if(key){
+      singleKey=key;sheetMode='single';sheetCat=null;
+      const [hh,mm]=key.split(':').map(Number);
+      const eM=(mm+15)%60,eH=mm+15>=60?hh+1:hh;
+      g('sh-title').textContent=fmt12(hh)+':'+pad(mm)+' – '+fmt12(eH)+':'+pad(eM);
+      g('sh-sub').textContent='What were you doing?';
+      const entry=ld(ds(vDate))[key];
+      g('sh-note').value=entry?.note||'';
+      buildCats(entry?.cat);
+      g('sh-clear').style.display='flex';
+      openSheet();
+    }
   }
-  dragging=false;
+  dragging=false;touchIntent=null;longPressKey=null;
 }
 function mDown(e){
   if(e.button!==0)return;
