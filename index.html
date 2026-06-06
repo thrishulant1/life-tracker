@@ -204,6 +204,7 @@ body.light .bnav{background:rgba(245,245,240,0.97);}
     <div class="hdr-left">
       <h1 id="hdr-title">Today</h1>
       <div class="sub" id="hdr-date"></div>
+      <div id="hdr-clock-inline" style="display:none;font-size:12px;color:var(--accent);font-family:'DM Mono',monospace;margin-top:3px;letter-spacing:0.02em;"></div>
     </div>
     <div class="hdr-right">
       <button class="nav-arrow" onclick="changeDay(-1)">‹</button>
@@ -215,42 +216,80 @@ body.light .bnav{background:rgba(245,245,240,0.97);}
 
   <!-- PAGE: Day -->
   <div class="page active" id="page-day">
-    <div id="clock-bar-wrap"></div>
-    <div class="mode-bar">
-      <button class="mode-btn active" id="mb-grid" onclick="setMode('grid')">📅 Grid</button>
-      <button class="mode-btn" id="mb-timer" onclick="setMode('timer')">⏱ Timer</button>
+    <!-- Live clock -->
+    <div id="clock-bar-A" style="margin:0 16px 12px;background:var(--surface);border-radius:12px;overflow:hidden;">
+      <!-- top row: time + activity -->
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px 8px;">
+        <div style="font-family:'DM Mono',monospace;font-size:24px;font-weight:500;color:#f0f0f0;line-height:1;">
+          <span id="clock-hm">--:--</span>
+          <span id="clock-ap" style="font-size:11px;color:#555;margin-left:5px;vertical-align:middle;">--</span>
+        </div>
+        <div style="text-align:right;">
+          <div id="clock-activity" style="min-height:18px;margin-bottom:2px;"></div>
+          <div id="clock-slot-val" style="font-size:10px;color:#444;font-family:'DM Mono',monospace;">--:-- - --:--</div>
+        </div>
+      </div>
+      <!-- bottom: slot progress bar -->
+      <div style="height:2px;background:#222;">
+        <div id="clock-progress" style="height:100%;width:0%;transition:width 1s linear;"></div>
+      </div>
     </div>
+    <script>
+    (function clockTick(){
+      var now=new Date(), h=now.getHours(), m=now.getMinutes(), s=now.getSeconds();
+      var h12=(h%12)||12, ampm=h<12?'AM':'PM';
+      var sm=Math.floor(m/15)*15, eh=sm+15>=60?h+1:h, em=(sm+15)%60;
+      function p(n){return String(n).padStart(2,'0');}
 
-    <!-- timer -->
-    <div id="sec-timer" style="display:none">
-      <div class="t-banner" id="t-banner">
-        <div><strong>Time's up!</strong><small>What were you doing?</small></div>
-        <button class="t-log-btn" onclick="openTimerLog()">Log it</button>
-      </div>
-      <div class="timer-wrap">
-        <div class="timer-card">
-          <div class="t-prog-wrap"><div class="t-prog" id="t-prog"></div></div>
-          <div class="t-status"><span class="t-dot" id="t-dot" style="display:none"></span><span id="t-status-txt">Ready</span></div>
-          <div class="t-time" id="t-time">15:00</div>
-          <div class="t-btns">
-            <button class="tbtn primary" id="t-start" onclick="timerStart()">Start</button>
-            <button class="tbtn" id="t-pause" onclick="timerPause()" style="display:none">Pause</button>
-            <button class="tbtn" onclick="timerReset()">Reset</button>
-            <button class="tbtn" onclick="openTimerLog()">Log now</button>
-          </div>
-        </div>
-      </div>
-      <div class="t-log-card" id="t-log-card">
-        <div class="sh-title" style="margin-bottom:3px">What were you doing?</div>
-        <div class="sh-sub" style="margin-bottom:12px">Last 15 minutes</div>
-        <div class="cat-grid" id="t-cat-grid"></div>
-        <textarea class="sh-note" id="t-note" rows="2" placeholder="Optional note..."></textarea>
-        <div class="sh-btns">
-          <button class="sh-btn primary" onclick="saveTimerLog()">Save</button>
-          <button class="sh-btn" onclick="closeTimerLog()">Cancel</button>
-        </div>
-      </div>
-    </div>
+      var hm=document.getElementById('clock-hm');
+      var ap=document.getElementById('clock-ap');
+      var sv=document.getElementById('clock-slot-val');
+      var ac=document.getElementById('clock-activity');
+      var pg=document.getElementById('clock-progress');
+
+      if(hm) hm.textContent=p(h12)+':'+p(m);
+      if(ap) ap.textContent=ampm;
+      if(sv) sv.textContent=p(h)+':'+p(sm)+' - '+p(eh)+':'+p(em);
+
+      // slot progress (0-900 seconds within the 15-min slot)
+      if(pg){
+        var slotSecs=(m-sm)*60+s;
+        var pct=Math.round(slotSecs/900*100);
+        pg.style.width=pct+'%';
+      }
+
+      // current activity from localStorage
+      if(ac){
+        try{
+          var ds=now.getFullYear()+'-'+p(now.getMonth()+1)+'-'+p(now.getDate());
+          var day=JSON.parse(localStorage.getItem('lt_'+ds)||'{}');
+          var entry=day[p(h)+':'+p(sm)];
+          var DCATS=[
+            {name:'Office',color:'#4d9fff'},{name:'Coding',color:'#c8f135'},
+            {name:'Learning',color:'#a78bfa'},{name:'Emails/msg',color:'#67e8a0'},
+            {name:'Scrolling',color:'#ff4d4d'},{name:'Sleeping',color:'#5b6bff'},
+            {name:'Breakfast',color:'#fbbf24'},{name:'Dinner',color:'#fb923c'},
+            {name:'Break',color:'#94a3b8'},{name:'Personal',color:'#ff7a4d'},
+            {name:'Home help',color:'#f472b6'}
+          ];
+          var allCats=JSON.parse(localStorage.getItem('lt_cats')||'null')||DCATS;
+          if(entry&&entry.cat){
+            var cat=allCats.find(function(c){return c.name===entry.cat;})||{color:'#888'};
+            if(pg) pg.style.background=cat.color;
+            ac.innerHTML=
+              '<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+cat.color
+              +';margin-right:6px;vertical-align:middle;animation:blink 1s infinite;"></span>'
+              +'<span style="color:'+cat.color+';font-size:14px;font-weight:600;font-family:DM Sans,sans-serif;">'+entry.cat+'</span>';
+          } else {
+            if(pg){pg.style.width='0%';}
+            ac.innerHTML='<span style="color:#3a3a3a;font-size:11px;font-family:DM Mono,monospace;">not logged yet</span>';
+          }
+        }catch(e){ ac.innerHTML=''; }
+      }
+      setTimeout(clockTick,1000);
+    })();
+    </script>
+    <div id="clock-bar-wrap" style="display:none;"></div>
 
     <!-- grid -->
     <div id="sec-grid">
@@ -531,7 +570,6 @@ let dragging=false;
 let sheetMode=null;
 let singleKey=null;
 let sheetCat=null;
-let tCat=null,tRunning=false,tSecs=900,tInt=null;
 let anTab='week';
 let weekOffset=0;  // 0=this week, -1=last week, etc.
 let anOffset=0;    // 0=current period, -1=prev, etc.
@@ -583,13 +621,6 @@ document.addEventListener('touchend',e=>{
 },{passive:true});
 
 // ===== MODE =====
-function setMode(m){
-  gridMode=m;
-  g('mb-grid').classList.toggle('active',m==='grid');
-  g('mb-timer').classList.toggle('active',m==='timer');
-  g('sec-grid').style.display=m==='grid'?'block':'none';
-  g('sec-timer').style.display=m==='timer'?'block':'none';
-}
 
 // ===== GRID =====
 function sk(h,m){return pad(h)+':'+pad(m);}
@@ -956,47 +987,6 @@ function updateScoreBanner(){
   if(streakLbl) streakLbl.textContent=streak>0&&bestStreakDay?'🔥 best: '+bestStreakDay:'🔥 streak';
 }
 
-// ===== TIMER =====
-function timerStart(){
-  if(tRunning)return;tRunning=true;
-  g('t-start').style.display='none';g('t-pause').style.display='';
-  g('t-dot').style.display='';g('t-status-txt').textContent='Running...';
-  g('t-banner').classList.remove('show');
-  tInt=setInterval(()=>{
-    if(!tRunning)return;
-    tSecs--;
-    g('t-prog').style.width=Math.round((1-tSecs/900)*100)+'%';
-    g('t-time').textContent=pad(Math.floor(tSecs/60))+':'+pad(tSecs%60);
-    if(tSecs<=0){
-      clearInterval(tInt);tRunning=false;tSecs=0;
-      g('t-time').textContent='00:00';
-      g('t-start').style.display='';g('t-pause').style.display='none';
-      g('t-dot').style.display='none';g('t-status-txt').textContent="Time's up!";
-      g('t-banner').classList.add('show');
-    }
-  },1000);
-}
-function timerPause(){clearInterval(tInt);tRunning=false;g('t-start').style.display='';g('t-pause').style.display='none';g('t-dot').style.display='none';g('t-status-txt').textContent='Paused';}
-function timerReset(){clearInterval(tInt);tRunning=false;tSecs=900;g('t-prog').style.width='0%';g('t-time').textContent='15:00';g('t-start').style.display='';g('t-pause').style.display='none';g('t-dot').style.display='none';g('t-status-txt').textContent='Ready';g('t-banner').classList.remove('show');g('t-log-card').classList.remove('show');}
-function openTimerLog(){
-  tCat=null;g('t-banner').classList.remove('show');
-  const cg=g('t-cat-grid');cg.innerHTML='';
-  CATS.forEach(cat=>{
-    const b=document.createElement('button');b.className='cat-opt';b.style.color=cat.color;
-    b.innerHTML='<span class="cdot" style="background:'+cat.color+'"></span>'+cat.name;
-    b.onclick=()=>{tCat=cat.name;cg.querySelectorAll('.cat-opt').forEach(x=>x.classList.remove('sel'));b.classList.add('sel');};
-    cg.appendChild(b);
-  });
-  g('t-note').value='';g('t-log-card').classList.add('show');
-}
-function saveTimerLog(){
-  if(!tCat){alert('Pick a category');return;}
-  const now=new Date();const day=ds(now);const data=ld(day);
-  const key=sk(now.getHours(),Math.floor(now.getMinutes()/15)*15);
-  data[key]={cat:tCat,note:g('t-note').value.trim()};
-  sd(day,data);closeTimerLog();timerReset();if(gridMode==='grid')renderGrid();
-}
-function closeTimerLog(){g('t-log-card').classList.remove('show');}
 
 // ===== WEEK PAGE =====
 function changeWeek(d){
@@ -1547,46 +1537,31 @@ function addCustomCat(){
 init();
 
 // ── live clock ──────────────────────────────────────────────
+function startClock(){ tickClock(); }
 
-// Inject clock bar and start ticking
-function startClock(){
-  var wrap=g('clock-bar-wrap');
-  if(!wrap)return;
-  if(g('clock-hm')){tickClock();return;}
-  var bar=document.createElement('div');
-  bar.style.cssText='display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;background:var(--surface);border-radius:12px;padding:10px 14px;';
-  var left=document.createElement('div');
-  left.style.cssText='font-family:monospace;font-size:20px;font-weight:500;color:var(--text);';
-  var hm=document.createElement('span');hm.id='clock-hm';hm.textContent='--:--';
-  var ap=document.createElement('span');ap.id='clock-ap';ap.style.cssText='font-size:12px;color:var(--muted);margin-left:4px;';ap.textContent='--';
-  left.appendChild(hm);left.appendChild(ap);
-  var right=document.createElement('div');
-  right.style.cssText='font-size:11px;color:var(--muted);text-align:right;font-family:monospace;';
-  right.textContent='current slot';
-  var sv=document.createElement('span');sv.id='clock-slot-val';
-  sv.style.cssText='display:block;color:var(--accent);font-size:11px;';sv.textContent='--:-- – --:--';
-  right.appendChild(sv);
-  bar.appendChild(left);bar.appendChild(right);
-  wrap.innerHTML='';wrap.appendChild(bar);
-  tickClock();
-}
 function tickClock(){
+  var bar=document.getElementById('clock-bar-A');
+  if(!bar) return;
   var now=new Date();
   var h=now.getHours(), m=now.getMinutes();
   var ampm=h<12?'AM':'PM';
   var h12=(h%12)||12;
-  var hm=g('clock-hm'), ap=g('clock-ap'), sv=g('clock-slot-val');
-  if(hm) hm.textContent=pad(h12)+':'+pad(m);
-  if(ap) ap.textContent=' '+ampm;
-  if(sv){
-    var sm=Math.floor(m/15)*15;
-    var em=(sm+15)%60;
-    var eh=sm+15>=60?h+1:h;
-    sv.textContent=pad(h)+':'+pad(sm)+' – '+pad(eh)+':'+pad(em);
-  }
+  var sm=Math.floor(m/15)*15;
+  var em=(sm+15)%60;
+  var eh=sm+15>=60?h+1:h;
+  bar.innerHTML=
+    '<div style="font-family:\'DM Mono\',monospace;font-size:22px;font-weight:500;color:var(--text);">'+
+      pad(h12)+':'+pad(m)+
+      '<span style="font-size:12px;color:var(--muted);margin-left:5px;">'+ampm+'</span>'+
+    '</div>'+
+    '<div style="font-size:10px;color:var(--muted);font-family:\'DM Mono\',monospace;text-align:right;">'+
+      'current slot<br>'+
+      '<span style="color:var(--accent);font-size:11px;">'+pad(h)+':'+pad(sm)+' - '+pad(eh)+':'+pad(em)+'</span>'+
+    '</div>';
 }
+
+tickClock();
 setInterval(tickClock,1000);
-setTimeout(startClock,100);
 </script>
 </body>
 </html>
