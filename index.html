@@ -338,10 +338,16 @@ body.light .bnav{background:rgba(245,245,240,0.97);}
       <button onclick="exportCSV()" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--muted);font-size:11px;padding:6px 12px;cursor:pointer;font-family:'DM Sans',sans-serif;">📊 Export Excel</button>
     </div>
     <div style="padding:0 16px 10px;">
-      <div class="heatmap-title">30-day productivity heatmap</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <div class="heatmap-title" id="hm-title" style="margin-bottom:0;">30-day heatmap</div>
+        <div style="display:flex;background:var(--surface);border-radius:8px;padding:2px;gap:2px;">
+          <button id="hm-btn-30" onclick="setHmMode(30)" style="font-size:10px;padding:3px 9px;border-radius:6px;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;background:var(--surface2);color:var(--text);">30d</button>
+          <button id="hm-btn-7" onclick="setHmMode(7)" style="font-size:10px;padding:3px 9px;border-radius:6px;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;background:none;color:var(--muted);">7d</button>
+        </div>
+      </div>
       <div class="hm-day-labels" id="hm-day-labels"></div>
       <div class="heatmap-grid" id="heatmap"></div>
-      <div class="hm-legend">
+      <div class="hm-legend" id="hm-legend-wrap">
         <span>Less</span>
         <div class="hm-legend-cells" id="hm-legend"></div>
         <span>More</span>
@@ -614,6 +620,7 @@ let singleKey=null;
 let sheetCat=null;
 let anTab='week';
 let weekOffset=0;  // 0=this week, -1=last week, etc.
+let hmMode=30;     // 30 or 7 day heatmap
 let anOffset=0;    // 0=current period, -1=prev, etc.
 let newCatColor=COLOR_PALETTE[0];
 let newCatType='productive';
@@ -1113,9 +1120,118 @@ function updateScoreBanner(){
 
 
 // ===== WEEK PAGE =====
-function changeWeek(d){
-  weekOffset+=d;
-  renderWeek();
+function changeWeek(d){weekOffset+=d;renderWeek();}
+
+function setHmMode(mode){
+  hmMode=mode;
+  var btn30=g('hm-btn-30'),btn7=g('hm-btn-7');
+  if(btn30){btn30.style.background=mode===30?'var(--surface2)':'none';btn30.style.color=mode===30?'var(--text)':'var(--muted)';}
+  if(btn7){btn7.style.background=mode===7?'var(--surface2)':'none';btn7.style.color=mode===7?'var(--text)':'var(--muted)';}
+  var title=g('hm-title');
+  if(title)title.textContent=mode===7?'This week':'30-day heatmap';
+  var today=new Date();today.setHours(0,0,0,0);
+  renderHeatmap(today);
+}
+
+function renderHeatmap(today){
+  var hm=g('heatmap');
+  var hmdl=g('hm-day-labels');
+  var legWrap=g('hm-legend-wrap');
+  if(!hm)return;
+
+  if(hmMode===7){
+    // 7-day strip: Mon–Sun of this week, one row, bigger cells
+    hm.style.gridTemplateColumns='repeat(7,1fr)';
+    hm.style.gap='4px';
+    if(hmdl){
+      hmdl.style.gridTemplateColumns='repeat(7,1fr)';
+      hmdl.style.gap='4px';
+      hmdl.innerHTML='';
+      var dow=today.getDay();
+      var diffToMon=dow===0?-6:1-dow;
+      var mon7=new Date(today.getTime()+diffToMon*86400000);
+      ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].forEach(function(lbl,i){
+        var el=document.createElement('div');
+        el.className='hm-day-lbl';
+        el.textContent=lbl;
+        el.style.fontSize='9px';
+        hmdl.appendChild(el);
+      });
+    }
+    hm.innerHTML='';
+    var dow2=today.getDay();
+    var diffToMon2=dow2===0?-6:1-dow2;
+    var mon7b=new Date(today.getTime()+diffToMon2*86400000);
+    for(var i=0;i<7;i++){
+      var day=new Date(mon7b.getTime()+i*86400000);
+      var dayStr=ds(day);
+      var data=ld(dayStr);
+      var cd=calcDay(data);
+      var pct=cd.scoreTotal>0?cd.prod/cd.scoreTotal:0;
+      var total=Object.keys(data).length;
+      var isFuture=day>today;
+      var isToday2=dayStr===ds(today);
+      var cell=document.createElement('div');
+      cell.style.cssText='height:40px;border-radius:8px;cursor:pointer;position:relative;display:flex;align-items:flex-end;justify-content:center;padding-bottom:4px;';
+      if(isFuture){
+        cell.style.background='var(--surface2)';
+        cell.style.border='1px dashed var(--border)';
+      } else if(total===0){
+        cell.style.background='var(--surface2)';
+        cell.style.border='1px solid var(--border)';
+      } else {
+        var opacity=0.2+pct*0.8;
+        cell.style.background='rgba(200,241,53,'+opacity.toFixed(2)+')';
+        cell.style.border=isToday2?'2px solid var(--accent)':'1px solid transparent';
+        var scoreEl=document.createElement('span');
+        scoreEl.style.cssText='font-size:8px;font-family:DM Mono,monospace;color:rgba(0,0,0,0.5);font-weight:600;';
+        scoreEl.textContent=Math.round(pct*100)+'%';
+        cell.appendChild(scoreEl);
+      }
+      cell.title=dayStr+': '+(total>0?Math.round(pct*100)+'% productive':'No data');
+      (function(dd){cell.onclick=function(){vDate=new Date(dd);updateHeader();renderGrid();showPage('day');};})(day);
+      hm.appendChild(cell);
+    }
+    if(legWrap)legWrap.style.display='none';
+  } else {
+    // 30-day compact grid
+    hm.style.gridTemplateColumns='repeat(7,1fr)';
+    hm.style.gap='3px';
+    if(hmdl){
+      hmdl.style.gridTemplateColumns='repeat(7,1fr)';
+      hmdl.style.gap='3px';
+      hmdl.innerHTML='';
+      ['S','M','T','W','T','F','S'].forEach(function(d){
+        var el=document.createElement('div');el.className='hm-day-lbl';el.textContent=d;hmdl.appendChild(el);
+      });
+    }
+    hm.innerHTML='';
+    for(var d=29;d>=0;d--){
+      var day=new Date(today.getTime()-d*86400000);
+      var dayStr=ds(day);
+      var data=ld(dayStr);
+      var cd=calcDay(data);
+      var pct=cd.scoreTotal>0?cd.prod/cd.scoreTotal:0;
+      var total=Object.keys(data).length;
+      var opacity=total===0?0.08:0.2+pct*0.8;
+      var cell=document.createElement('div');
+      cell.className='hm-cell';
+      cell.style.background=total===0?'var(--surface2)':'rgba(200,241,53,'+opacity.toFixed(2)+')';
+      cell.title=dayStr+': '+(total>0?Math.round(pct*100)+'% productive':'No data');
+      (function(dd){cell.onclick=function(){vDate=new Date(dd);updateHeader();renderGrid();showPage('day');};})(day);
+      hm.appendChild(cell);
+    }
+    if(legWrap)legWrap.style.display='flex';
+    var leg=g('hm-legend');
+    if(leg){
+      leg.innerHTML='';
+      [0.08,0.3,0.5,0.7,0.9].forEach(function(o){
+        var c=document.createElement('div');c.className='hm-legend-cell';
+        c.style.background=o===0.08?'var(--surface2)':'rgba(200,241,53,'+o+')';
+        leg.appendChild(c);
+      });
+    }
+  }
 }
 function renderWeek(){
   const today=new Date(); today.setHours(0,0,0,0);
@@ -1135,42 +1251,8 @@ function renderWeek(){
     else titleEl.textContent=mon.getDate()+' '+MN[mon.getMonth()]+' – '+sun.getDate()+' '+MN[sun.getMonth()];
   }
 
-  // Heatmap (always last 30 days from today)
-  const hmdl=g('hm-day-labels');
-  if(hmdl){
-    hmdl.innerHTML='';
-    ['S','M','T','W','T','F','S'].forEach(function(d){
-      var el=document.createElement('div');el.className='hm-day-lbl';el.textContent=d;hmdl.appendChild(el);
-    });
-  }
-  const hm=g('heatmap');
-  if(hm){
-    hm.innerHTML='';
-    for(var d=29;d>=0;d--){
-      var day=new Date(today.getTime()-d*86400000);
-      var dayStr=ds(day);
-      var data=ld(dayStr);
-      var cd=calcDay(data);
-      var pct=cd.scoreTotal>0?cd.prod/cd.scoreTotal:0;
-      var total=Object.keys(data).length;
-      var opacity=total===0?0.08:0.2+pct*0.8;
-      var cell=document.createElement('div');
-      cell.className='hm-cell';
-      cell.style.background=total===0?'var(--surface2)':'rgba(200,241,53,'+opacity.toFixed(2)+')';
-      cell.title=dayStr+': '+(total>0?Math.round(pct*100)+'% productive':'No data');
-      (function(dd){cell.onclick=function(){vDate=new Date(dd);updateHeader();renderGrid();showPage('day');};})(day);
-      hm.appendChild(cell);
-    }
-    var leg=g('hm-legend');
-    if(leg){
-      leg.innerHTML='';
-      [0.08,0.3,0.5,0.7,0.9].forEach(function(o){
-        var c=document.createElement('div');c.className='hm-legend-cell';
-        c.style.background=o===0.08?'var(--surface2)':'rgba(200,241,53,'+o+')';
-        leg.appendChild(c);
-      });
-    }
-  }
+  // Heatmap
+  renderHeatmap(today);
 
   // Build ordered day list for the week
   // If this week: today first, then tomorrow..sunday, then monday..yesterday
