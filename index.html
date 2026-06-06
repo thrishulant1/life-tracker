@@ -294,9 +294,12 @@ body.light .bnav{background:rgba(245,245,240,0.97);}
     <!-- grid -->
     <div id="sec-grid">
       <div class="score-banner" id="score-banner">
-        <div class="score-num" id="score-num">-</div>
+        <div>
+          <div class="score-num" id="score-num">-</div>
+          <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;font-family:'DM Mono',monospace;margin-top:1px;">Today</div>
+        </div>
         <div class="score-info">
-          <div class="score-label" id="score-label">Weekly score</div>
+          <div class="score-label" id="score-label">Weekly avg <span id="score-weekly" style="font-family:'DM Mono',monospace;color:var(--muted);font-size:12px;">—</span></div>
           <div class="score-sub" id="score-sub">Log more to see your score</div>
           <div id="goal-bar-wrap" style="margin-top:6px;display:none;">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;">
@@ -320,6 +323,10 @@ body.light .bnav{background:rgba(245,245,240,0.97);}
         <div class="s-box"><div class="s-val" id="su-sleep" style="color:#a78bfa">0h</div><div class="s-lbl">sleep</div></div>
       </div>
       <div class="sleep-warn" id="sleep-warn">😴 <span id="sleep-warn-txt"></span></div>
+      <div id="unlogged-bar" style="display:none;margin:0 16px 8px;padding:9px 12px;background:var(--surface);border-radius:10px;display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-size:12px;color:var(--muted);">⏳ <span id="unlogged-txt"></span> unlogged</span>
+        <span style="font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;" id="unlogged-pct"></span>
+      </div>
       <div class="hint">💡 <span><b>Tap</b> slot · <b>Hold & drag</b> to select many · <b>Long-press</b> filled slot to edit</span></div>
       <button class="fill-btn" onclick="copyYesterday()">📋 Copy yesterday's schedule to today</button>
       <button class="fill-btn" onclick="fillRemaining()">🌙 Smart fill empty slots by time of day</button>
@@ -498,6 +505,12 @@ body.light .bnav{background:rgba(245,245,240,0.97);}
   </div>
 </div>
 
+<!-- undo toast -->
+<div id="undo-toast" style="position:fixed;bottom:148px;left:50%;transform:translateX(-50%);background:#1e1e1e;border:1px solid #444;border-radius:12px;padding:10px 14px;display:none;align-items:center;gap:12px;z-index:60;box-shadow:0 4px 20px rgba(0,0,0,0.5);white-space:nowrap;">
+  <span id="undo-msg" style="font-size:13px;color:#f0f0f0;"></span>
+  <button onclick="doUndo()" style="background:var(--accent);color:#0e0e0e;border:none;border-radius:8px;padding:5px 12px;font-size:12px;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer;">↩ Undo</button>
+</div>
+
 <!-- action bar -->
 <div class="action-bar" id="action-bar">
   <div class="ab-info">
@@ -607,9 +620,13 @@ function getCats(){
 function saveCats(c){localStorage.setItem('lt_cats',JSON.stringify(c));}
 
 let CATS=getCats();
-let settings={sleepWarn:true,darkMode:true,dailyGoal:70};
-try{settings=JSON.parse(localStorage.getItem('lt_settings')||JSON.stringify(settings));}catch(e){}
-if(!settings.dailyGoal) settings.dailyGoal=70;
+const _sysDark=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;
+let settings={sleepWarn:true,darkMode:_sysDark,dailyGoal:70};
+try{
+  const _saved=localStorage.getItem('lt_settings');
+  if(_saved) settings=JSON.parse(_saved);
+}catch(e){}
+if(settings.dailyGoal===undefined) settings.dailyGoal=70;
 
 let vDate=new Date(); vDate.setHours(0,0,0,0);
 let gridMode='grid';
@@ -893,6 +910,7 @@ function clearMultiSlots(){
   const day=ds(vDate);
   const data=ld(day);
   let count=0;
+  pushUndo(day,'Cleared '+sel.size+' slots');
   Array.from(sel).forEach(k=>{if(data[k]){delete data[k];count++;}});
   sd(day,data);
   sel.clear();updateSlotVis();updateActionBar();
@@ -919,6 +937,7 @@ function copyYesterday(){
   let copied=0;
   Object.keys(src).forEach(k=>{if(!dest[k]){dest[k]={cat:src[k].cat,note:''};copied++;}});
   if(!copied){alert('All slots already filled for today.');return;}
+  pushUndo(today,'Copied yesterday');
   sd(today,dest);
   renderGrid();
   alert('Copied '+copied+' slots from yesterday.');
@@ -969,6 +988,7 @@ function fillRemaining(){
       }
     }
   }
+  pushUndo(day,'Smart fill');
   sd(day,data);
   renderGrid();
   alert('Smart-filled '+filled+' empty slots based on time of day.');
@@ -1001,12 +1021,14 @@ function saveSheet(){
   const day=ds(vDate);const data=ld(day);
   const note=g('sh-note').value.trim();
   const keys=sheetMode==='multi'?Array.from(sel):[singleKey];
+  pushUndo(day,'Assigned');
   keys.forEach(k=>{if(k)data[k]={cat:sheetCat,note};});
   sd(day,data);closeSheet();renderGrid();
 }
 function clearSlot(){
   if(!singleKey)return;
   const day=ds(vDate);const data=ld(day);
+  pushUndo(day,'Cleared');
   delete data[singleKey];sd(day,data);closeSheet();renderGrid();
 }
 
@@ -1048,7 +1070,7 @@ function calcDay(data){
   };
 }
 function updateSummary(data){
-  const {total,prod,waste,scoreTotal,sleepSlots,excessSleep,excessBreak,excessPersonal}=calcDay(data);
+  const {total,prod,waste,scoreTotal,sleepSlots,excessSleep,excessBreak,excessPersonal,excessMeal}=calcDay(data);
   g('su-logged').textContent=total;
   g('su-prod').textContent=scoreTotal>0?Math.round(prod/scoreTotal*100)+'%':'0%';
   g('su-waste').textContent=scoreTotal>0?Math.round(waste/scoreTotal*100)+'%':'0%';
@@ -1065,6 +1087,49 @@ function updateSummary(data){
     sw.style.display='flex';
     g('sleep-warn-txt').textContent=warns.join(' · ')+' — hurting your score';
   } else sw.style.display='none';
+  // Unlogged bar — only show for today
+  const isToday=ds(vDate)===ds(new Date());
+  const ub=g('unlogged-bar');
+  if(ub&&isToday){
+    const now=new Date();
+    const passedSlots=(now.getHours()*4)+Math.floor(now.getMinutes()/15)+1;
+    const unlogged=Math.max(0,passedSlots-total);
+    if(unlogged>0){
+      ub.style.display='flex';
+      g('unlogged-txt').textContent=(unlogged*0.25).toFixed(1)+'h';
+      g('unlogged-pct').textContent=Math.round(unlogged/passedSlots*100)+'% of day';
+    } else {
+      ub.style.display='none';
+    }
+  } else if(ub){
+    ub.style.display='none';
+  }
+}
+
+// ===== UNDO =====
+let undoStack=null,undoTimer=null;
+function pushUndo(day,label){
+  undoStack={day,data:JSON.parse(JSON.stringify(ld(day))),label};
+  showUndoToast(label);
+}
+function doUndo(){
+  if(!undoStack)return;
+  sd(undoStack.day,undoStack.data);
+  undoStack=null;
+  hideUndoToast();
+  renderGrid();
+}
+function showUndoToast(msg){
+  const t=g('undo-toast');const m=g('undo-msg');
+  if(!t||!m)return;
+  m.textContent=msg||'Done';
+  t.style.display='flex';
+  if(undoTimer)clearTimeout(undoTimer);
+  undoTimer=setTimeout(hideUndoToast,5000);
+}
+function hideUndoToast(){
+  const t=g('undo-toast');if(t)t.style.display='none';
+  if(undoTimer){clearTimeout(undoTimer);undoTimer=null;}
 }
 
 // ===== SCORE + STREAK =====
@@ -1086,19 +1151,30 @@ function updateScoreBanner(){
     const {prod,scoreTotal}=calcDay(data);
     if(scoreTotal>0){lastWeekProd+=prod;lastWeekTotal+=scoreTotal;}
   }
-  const score=weekTotal>0?Math.round(weekProd/weekTotal*100):null;
+  const weekScore=weekTotal>0?Math.round(weekProd/weekTotal*100):null;
   const lastScore=lastWeekTotal>0?Math.round(lastWeekProd/lastWeekTotal*100):null;
-  if(score!==null){
-    g('score-num').textContent=score+'%';
-    g('score-num').style.color=score>=70?'#67e8a0':score>=40?'#ffb84d':'#ff4d4d';
-    g('score-label').textContent='Weekly score';
-    const delta=lastScore!==null?score-lastScore:null;
+
+  // Today's score (primary)
+  const todayD=ld(ds(today));
+  const td=calcDay(todayD);
+  const todayScore=td.scoreTotal>0?Math.round(td.prod/td.scoreTotal*100):null;
+  const scoreEl=g('score-num');
+  const weekEl=g('score-weekly');
+  if(todayScore!==null){
+    scoreEl.textContent=todayScore+'%';
+    scoreEl.style.color=todayScore>=70?'#67e8a0':todayScore>=40?'#ffb84d':'#ff4d4d';
+  } else {
+    scoreEl.textContent='-';
+    scoreEl.style.color='var(--muted)';
+  }
+  if(weekEl) weekEl.textContent=weekScore!==null?weekScore+'%':'—';
+  if(weekScore!==null){
+    const delta=lastScore!==null?weekScore-lastScore:null;
     const deltaStr=delta!==null?(delta>=0?'↑ +'+delta+'% vs last week':'↓ '+delta+'% vs last week'):'';
-    const bestStr=bestDay?'🏆 Best: '+bestDay+' ('+Math.round(bestPct)+'%)':'';
+    const bestStr=bestDay?'🏆 '+bestDay+' ('+Math.round(bestPct)+'%)':'';
     g('score-sub').textContent=[deltaStr,bestStr].filter(Boolean).join(' · ')||'Keep logging!';
   } else {
-    g('score-num').textContent='-';
-    g('score-sub').textContent='Log more days to see your score';
+    g('score-sub').textContent='Log more days to see weekly score';
   }
   // streak = consecutive days with any logs
   // start from today if logged, else from yesterday (today might not be done yet)
