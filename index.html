@@ -339,10 +339,10 @@ body.light .bnav{background:rgba(245,245,240,0.97);}
     </div>
     <div style="padding:0 16px 10px;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-        <div class="heatmap-title" id="hm-title" style="margin-bottom:0;">30-day heatmap</div>
+        <div class="heatmap-title" id="hm-title" style="margin-bottom:0;">This week</div>
         <div style="display:flex;background:var(--surface);border-radius:8px;padding:2px;gap:2px;">
-          <button id="hm-btn-30" onclick="setHmMode(30)" style="font-size:10px;padding:3px 9px;border-radius:6px;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;background:var(--surface2);color:var(--text);">30d</button>
-          <button id="hm-btn-7" onclick="setHmMode(7)" style="font-size:10px;padding:3px 9px;border-radius:6px;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;background:none;color:var(--muted);">7d</button>
+          <button id="hm-btn-7" onclick="setHmMode(7)" style="font-size:10px;padding:3px 9px;border-radius:6px;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;background:var(--surface2);color:var(--text);">7d</button>
+          <button id="hm-btn-30" onclick="setHmMode(30)" style="font-size:10px;padding:3px 9px;border-radius:6px;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;background:none;color:var(--muted);">30d</button>
         </div>
       </div>
       <div class="hm-day-labels" id="hm-day-labels"></div>
@@ -620,7 +620,7 @@ let singleKey=null;
 let sheetCat=null;
 let anTab='week';
 let weekOffset=0;  // 0=this week, -1=last week, etc.
-let hmMode=30;     // 30 or 7 day heatmap
+let hmMode=7;      // 30 or 7 day heatmap — default 7
 let anOffset=0;    // 0=current period, -1=prev, etc.
 let newCatColor=COLOR_PALETTE[0];
 let newCatType='productive';
