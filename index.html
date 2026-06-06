@@ -220,9 +220,9 @@ body.light .bnav{background:rgba(245,245,240,0.97);}
     <div id="clock-bar-A" onclick="logNow()" style="margin:0 16px 12px;background:var(--surface);border-radius:12px;overflow:hidden;cursor:pointer;" title="Tap to log now">
       <!-- top row: time + activity -->
       <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px 8px;">
-        <div style="font-family:'DM Mono',monospace;font-size:24px;font-weight:500;color:#f0f0f0;line-height:1;">
+        <div style="font-family:'DM Sans',sans-serif;font-size:26px;font-weight:600;color:#f0f0f0;line-height:1;letter-spacing:-0.5px;">
           <span id="clock-hm">--:--</span>
-          <span id="clock-ap" style="font-size:11px;color:#555;margin-left:5px;vertical-align:middle;">--</span>
+          <span id="clock-ap" style="font-size:11px;color:#555;margin-left:4px;vertical-align:middle;font-weight:500;letter-spacing:0;">--</span>
         </div>
         <div style="text-align:right;">
           <div id="clock-activity" style="min-height:18px;margin-bottom:2px;"></div>
@@ -238,7 +238,7 @@ body.light .bnav{background:rgba(245,245,240,0.97);}
     (function clockTick(){
       var now=new Date(), h=now.getHours(), m=now.getMinutes(), s=now.getSeconds();
       var h12=(h%12)||12, ampm=h<12?'AM':'PM';
-      var sm=Math.floor(m/15)*15, eh=sm+15>=60?h+1:h, em=(sm+15)%60;
+      var sm=Math.floor(m/15)*15, em=(sm+15)%60, eh=(sm+15>=60?h+1:h)%24;
       function p(n){return String(n).padStart(2,'0');}
 
       var hm=document.getElementById('clock-hm');
@@ -249,7 +249,8 @@ body.light .bnav{background:rgba(245,245,240,0.97);}
 
       if(hm) hm.textContent=p(h12)+':'+p(m);
       if(ap) ap.textContent=ampm;
-      if(sv) sv.textContent=p(h)+':'+p(sm)+' - '+p(eh)+':'+p(em);
+      var slotEnd=(sm+15>=60&&h===23)?'00:00':p(eh)+':'+p(em);
+      if(sv) sv.textContent=p(h)+':'+p(sm)+' – '+slotEnd;
 
       // slot progress (0-900 seconds within the 15-min slot)
       if(pg){
@@ -948,9 +949,9 @@ function logNow(){
   const now=new Date();
   const key=sk(now.getHours(),Math.floor(now.getMinutes()/15)*15);
   const [hh,mm]=key.split(':').map(Number);
-  const eM=(mm+15)%60,eH=mm+15>=60?hh+1:hh;
+  const eM=(mm+15)%60,eH=(mm+15>=60?hh+1:hh)%24;
   singleKey=key;sheetMode='single';sheetCat=null;
-  g('sh-title').textContent=fmt12(hh)+':'+pad(mm)+' – '+fmt12(eH)+':'+pad(eM);
+  g('sh-title').textContent=fmt12(hh)+':'+pad(mm)+' – '+(eH===0&&eM===0?'12:00 AM':fmt12(eH)+':'+pad(eM));
   g('sh-sub').textContent='What are you doing now?';
   const entry=ld(ds(new Date()))[key];
   g('sh-note').value=entry?.note||'';
