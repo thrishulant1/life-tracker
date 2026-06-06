@@ -217,7 +217,7 @@ body.light .bnav{background:rgba(245,245,240,0.97);}
   <!-- PAGE: Day -->
   <div class="page active" id="page-day">
     <!-- Live clock -->
-    <div id="clock-bar-A" style="margin:0 16px 12px;background:var(--surface);border-radius:12px;overflow:hidden;">
+    <div id="clock-bar-A" onclick="logNow()" style="margin:0 16px 12px;background:var(--surface);border-radius:12px;overflow:hidden;cursor:pointer;" title="Tap to log now">
       <!-- top row: time + activity -->
       <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px 8px;">
         <div style="font-family:'DM Mono',monospace;font-size:24px;font-weight:500;color:#f0f0f0;line-height:1;">
@@ -298,6 +298,15 @@ body.light .bnav{background:rgba(245,245,240,0.97);}
         <div class="score-info">
           <div class="score-label" id="score-label">Weekly score</div>
           <div class="score-sub" id="score-sub">Log more to see your score</div>
+          <div id="goal-bar-wrap" style="margin-top:6px;display:none;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;">
+              <span style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;font-family:'DM Mono',monospace;">Daily goal</span>
+              <span id="goal-bar-label" style="font-size:9px;color:var(--muted);font-family:'DM Mono',monospace;"></span>
+            </div>
+            <div style="height:4px;background:var(--surface2);border-radius:2px;overflow:hidden;">
+              <div id="goal-bar-fill" style="height:100%;border-radius:2px;transition:width 0.4s;"></div>
+            </div>
+          </div>
         </div>
         <div class="streak-badge">
           <div class="streak-num" id="streak-num">0</div>
@@ -312,7 +321,8 @@ body.light .bnav{background:rgba(245,245,240,0.97);}
       </div>
       <div class="sleep-warn" id="sleep-warn">😴 <span id="sleep-warn-txt"></span></div>
       <div class="hint">💡 <span><b>Tap</b> slot · <b>Hold & drag</b> to select many · <b>Long-press</b> filled slot to edit</span></div>
-      <button class="fill-btn" onclick="fillRemaining()">🌙 Fill remaining empty slots as Sleep</button>
+      <button class="fill-btn" onclick="copyYesterday()">📋 Copy yesterday's schedule to today</button>
+      <button class="fill-btn" onclick="fillRemaining()">🌙 Smart fill empty slots by time of day</button>
       <div class="grid-wrap" id="grid-wrap"></div>
     </div>
   </div>
@@ -387,6 +397,20 @@ body.light .bnav{background:rgba(245,245,240,0.97);}
         </div>
       </div>
       <div class="set-section">
+        <div class="set-section-title">Daily goal</div>
+        <div class="set-row" style="cursor:default;">
+          <div class="set-row-icon">🎯</div>
+          <div class="set-row-info">
+            <div class="set-row-label">Target productive score</div>
+            <div class="set-row-sub">Show a progress bar on the day view</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <input type="number" id="goal-input" min="0" max="100" value="70" style="width:52px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;font-family:'DM Mono',monospace;padding:5px 8px;text-align:center;" onchange="saveGoal(this.value)">
+            <span style="font-size:13px;color:var(--muted);">%</span>
+          </div>
+        </div>
+      </div>
+      <div class="set-section">
         <div class="set-section-title">Year progress</div>
         <div style="background:var(--surface);border-radius:14px;padding:14px;">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
@@ -438,6 +462,23 @@ body.light .bnav{background:rgba(245,245,240,0.97);}
           <div class="set-row-action">›</div>
         </div>
         <input type="file" id="import-file" accept=".csv" style="display:none" onchange="importCSV(event)">
+        <div class="set-row" onclick="exportJSON()">
+          <div class="set-row-icon">💾</div>
+          <div class="set-row-info">
+            <div class="set-row-label">Backup (JSON)</div>
+            <div class="set-row-sub">Download a full backup — safest format, includes all data</div>
+          </div>
+          <div class="set-row-action">›</div>
+        </div>
+        <div class="set-row" onclick="g('import-json-file').click()">
+          <div class="set-row-icon">📥</div>
+          <div class="set-row-info">
+            <div class="set-row-label">Restore from backup (JSON)</div>
+            <div class="set-row-sub">Merge a JSON backup — won't overwrite existing slots</div>
+          </div>
+          <div class="set-row-action">›</div>
+        </div>
+        <input type="file" id="import-json-file" accept=".json" style="display:none" onchange="importJSON(event)">
         <div class="set-row" onclick="clearAllData()">
           <div class="set-row-icon">🗑</div>
           <div class="set-row-info">
@@ -560,8 +601,9 @@ function getCats(){
 function saveCats(c){localStorage.setItem('lt_cats',JSON.stringify(c));}
 
 let CATS=getCats();
-let settings={sleepWarn:true,darkMode:true};
+let settings={sleepWarn:true,darkMode:true,dailyGoal:70};
 try{settings=JSON.parse(localStorage.getItem('lt_settings')||JSON.stringify(settings));}catch(e){}
+if(!settings.dailyGoal) settings.dailyGoal=70;
 
 let vDate=new Date(); vDate.setHours(0,0,0,0);
 let gridMode='grid';
@@ -583,6 +625,15 @@ function init(){
   updateHeader();
   renderGrid();
   buildColorOpts();
+  const gi=g('goal-input');
+  if(gi) gi.value=settings.dailyGoal||70;
+}
+
+function saveGoal(v){
+  const n=parseInt(v)||0;
+  settings.dailyGoal=Math.max(0,Math.min(100,n));
+  localStorage.setItem('lt_settings',JSON.stringify(settings));
+  updateScoreBanner();
 }
 
 // ===== THEME =====
@@ -673,7 +724,10 @@ function renderGrid(){
   startClock();
   const scrollH=isToday?Math.max(0,now.getHours()-1):6;
   const blocks=wrap.querySelectorAll('.hour-block');
-  if(blocks[scrollH])setTimeout(()=>blocks[scrollH].scrollIntoView({behavior:'smooth',block:'start'}),80);
+  if(blocks[scrollH])setTimeout(()=>{
+    const top=blocks[scrollH].getBoundingClientRect().top+window.scrollY-80;
+    window.scrollTo({top:Math.max(0,top),behavior:'smooth'});
+  },120);
 }
 
 // ===== TOUCH / MOUSE =====
@@ -827,7 +881,53 @@ function openSheetMulti(){
   openSheet();
 }
 
+// ===== COPY YESTERDAY =====
+function copyYesterday(){
+  const today=ds(vDate);
+  const yest=ds(new Date(vDate.getTime()-86400000));
+  const src=ld(yest);
+  if(!Object.keys(src).length){alert('No data logged for yesterday.');return;}
+  const dest=ld(today);
+  let copied=0;
+  Object.keys(src).forEach(k=>{if(!dest[k]){dest[k]={cat:src[k].cat,note:''};copied++;}});
+  if(!copied){alert('All slots already filled for today.');return;}
+  sd(today,dest);
+  renderGrid();
+  alert('Copied '+copied+' slots from yesterday.');
+}
+
+// ===== LOG NOW (tap clock bar) =====
+function logNow(){
+  const now=new Date();
+  const key=sk(now.getHours(),Math.floor(now.getMinutes()/15)*15);
+  const [hh,mm]=key.split(':').map(Number);
+  const eM=(mm+15)%60,eH=mm+15>=60?hh+1:hh;
+  singleKey=key;sheetMode='single';sheetCat=null;
+  g('sh-title').textContent=fmt12(hh)+':'+pad(mm)+' – '+fmt12(eH)+':'+pad(eM);
+  g('sh-sub').textContent='What are you doing now?';
+  const entry=ld(ds(new Date()))[key];
+  g('sh-note').value=entry?.note||'';
+  buildCats(entry?.cat);
+  g('sh-clear').style.display=entry?'flex':'none';
+  openSheet();
+}
+
 // ===== FILL REMAINING =====
+function smartCat(h,m){
+  // time-of-day suggestions based on typical schedule
+  const t=h*60+m;
+  if(t<360)        return 'Sleeping';   // 12AM–6AM
+  if(t<420)        return 'Personal';   // 6AM–7AM
+  if(t<480)        return 'Home help';  // 7AM–8AM
+  if(t<510)        return 'Breakfast';  // 8AM–8:30AM
+  if(t<540)        return 'Break';      // 8:30AM–9AM
+  if(t<600)        return 'Learning';   // 9AM–10AM
+  if(t<1140)       return 'Office';     // 10AM–7PM
+  if(t<1200)       return 'Break';      // 7PM–8PM
+  if(t<1230)       return 'Dinner';     // 8PM–8:30PM
+  if(t<1290)       return 'Break';      // 8:30PM–9:30PM
+  return 'Sleeping';                    // 9:30PM–12AM
+}
 function fillRemaining(){
   const day=ds(vDate);
   const data=ld(day);
@@ -835,12 +935,15 @@ function fillRemaining(){
   for(let h=0;h<24;h++){
     for(let qi=0;qi<4;qi++){
       const key=sk(h,qi*15);
-      if(!data[key]){data[key]={cat:'Sleeping',note:'auto-filled'};filled++;}
+      if(!data[key]){
+        data[key]={cat:smartCat(h,qi*15),note:'auto-filled'};
+        filled++;
+      }
     }
   }
   sd(day,data);
   renderGrid();
-  alert('Filled '+filled+' empty slots as Sleeping.');
+  alert('Smart-filled '+filled+' empty slots based on time of day.');
 }
 
 // ===== SHEET =====
@@ -970,8 +1073,11 @@ function updateScoreBanner(){
     g('score-sub').textContent='Log more days to see your score';
   }
   // streak = consecutive days with any logs
+  // start from today if logged, else from yesterday (today might not be done yet)
   let streak=0; let bestStreakScore=0; let bestStreakDay='';
-  for(let d=0;d<365;d++){
+  const todayData=ld(ds(today));
+  const startD=Object.keys(todayData).length>0?0:1;
+  for(let d=startD;d<365;d++){
     const day=new Date(today.getTime()-d*86400000);
     const data=ld(ds(day));
     if(Object.keys(data).length>0){
@@ -982,9 +1088,27 @@ function updateScoreBanner(){
     } else break;
   }
   g('streak-num').textContent=streak;
-  // update streak label to show best day
   const streakLbl=document.querySelector('.streak-lbl');
   if(streakLbl) streakLbl.textContent=streak>0&&bestStreakDay?'🔥 best: '+bestStreakDay:'🔥 streak';
+
+  // daily goal bar (today's productive %)
+  const goalWrap=g('goal-bar-wrap');
+  const goalFill=g('goal-bar-fill');
+  const goalLbl=g('goal-bar-label');
+  if(goalWrap&&settings.dailyGoal>0){
+    const todayD=ld(ds(new Date()));
+    const td=calcDay(todayD);
+    const todayPct=td.scoreTotal>0?Math.round(td.prod/td.scoreTotal*100):0;
+    const goal=settings.dailyGoal;
+    const pct=Math.min(100,Math.round(todayPct/goal*100));
+    const hit=todayPct>=goal;
+    goalWrap.style.display='block';
+    goalFill.style.width=pct+'%';
+    goalFill.style.background=hit?'#67e8a0':'#ffb84d';
+    goalLbl.textContent=todayPct+'% / '+goal+'% '+(hit?'✓':'');
+  } else if(goalWrap){
+    goalWrap.style.display='none';
+  }
 }
 
 
@@ -1063,7 +1187,48 @@ function renderWeek(){
     }
   }
 
+  // Weekly summary card
   var wrap=g('week-wrap');wrap.innerHTML='';
+  var weeklyProd=0,weeklyWaste=0,weeklyTotal=0,weeklyLogged=0,weeklyDays=0;
+  var weekCatTotals={};
+  weekDays.forEach(function(day){
+    var data=ld(ds(day));
+    if(!Object.keys(data).length) return;
+    var cd=calcDay(data);
+    weeklyProd+=cd.prod;weeklyWaste+=cd.waste;weeklyTotal+=cd.scoreTotal;
+    weeklyLogged+=Object.keys(data).length;weeklyDays++;
+    Object.values(data).forEach(function(e){weekCatTotals[e.cat]=(weekCatTotals[e.cat]||0)+1;});
+  });
+  var weekScore=weeklyTotal>0?Math.round(weeklyProd/weeklyTotal*100):null;
+  var weekScoreColor=weekScore===null?'var(--muted)':weekScore>=70?'#67e8a0':weekScore>=40?'#ffb84d':'#ff4d4d';
+  var topCats=Object.entries(weekCatTotals).sort(function(a,b){return b[1]-a[1];}).slice(0,4);
+  var summaryCard=document.createElement('div');
+  summaryCard.style.cssText='margin:0 16px 14px;background:var(--surface);border-radius:16px;padding:16px;';
+  var summHtml='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">';
+  summHtml+='<div style="font-size:13px;font-weight:600;">Week Summary</div>';
+  summHtml+='<div style="font-size:22px;font-weight:600;font-family:\'DM Mono\',monospace;color:'+weekScoreColor+';">'+(weekScore!==null?weekScore+'%':'—')+'</div></div>';
+  summHtml+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;">';
+  summHtml+='<div style="background:var(--surface2);border-radius:10px;padding:10px 8px;text-align:center;"><div style="font-size:16px;font-weight:600;font-family:\'DM Mono\',monospace;color:var(--accent);">'+weeklyDays+'</div><div style="font-size:9px;color:var(--muted);text-transform:uppercase;margin-top:2px;">Days</div></div>';
+  summHtml+='<div style="background:var(--surface2);border-radius:10px;padding:10px 8px;text-align:center;"><div style="font-size:16px;font-weight:600;font-family:\'DM Mono\',monospace;color:#67e8a0;">'+(weeklyProd*0.25).toFixed(0)+'h</div><div style="font-size:9px;color:var(--muted);text-transform:uppercase;margin-top:2px;">Productive</div></div>';
+  summHtml+='<div style="background:var(--surface2);border-radius:10px;padding:10px 8px;text-align:center;"><div style="font-size:16px;font-weight:600;font-family:\'DM Mono\',monospace;color:#ff4d4d;">'+(weeklyWaste*0.25).toFixed(0)+'h</div><div style="font-size:9px;color:var(--muted);text-transform:uppercase;margin-top:2px;">Wasted</div></div>';
+  summHtml+='</div>';
+  if(topCats.length){
+    summHtml+='<div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;font-family:\'DM Mono\',monospace;">Top activities</div>';
+    var maxCatSlots=topCats[0][1]||1;
+    topCats.forEach(function(entry){
+      var cat=CATS.find(function(c){return c.name===entry[0];})||{color:'#888'};
+      var pct=Math.round(entry[1]/maxCatSlots*100);
+      summHtml+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">';
+      summHtml+='<div style="width:8px;height:8px;border-radius:50%;background:'+cat.color+';flex-shrink:0;"></div>';
+      summHtml+='<div style="font-size:11px;color:var(--text);width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+entry[0]+'</div>';
+      summHtml+='<div style="flex:1;height:5px;background:var(--surface2);border-radius:3px;overflow:hidden;"><div style="height:100%;width:'+pct+'%;background:'+cat.color+';border-radius:3px;"></div></div>';
+      summHtml+='<div style="font-size:10px;color:var(--muted);font-family:\'DM Mono\',monospace;width:28px;text-align:right;">'+(entry[1]*0.25).toFixed(0)+'h</div>';
+      summHtml+='</div>';
+    });
+  }
+  summaryCard.innerHTML=summHtml;
+  wrap.appendChild(summaryCard);
+
   weekDays.forEach(function(day){
     var dayStr=ds(day);
     var data=ld(dayStr);
@@ -1440,6 +1605,50 @@ function parseCSVLine(line){
     else current+=ch;
   }
   result.push(current);return result;
+}
+
+// ===== JSON BACKUP / RESTORE =====
+function exportJSON(){
+  const allDayKeys=Object.keys(localStorage).filter(k=>k.startsWith('lt_2')).map(k=>k.replace('lt_','')).sort();
+  if(!allDayKeys.length){alert('No data to export yet.');return;}
+  const backup={version:1,exportedAt:new Date().toISOString(),days:{}};
+  allDayKeys.forEach(dayStr=>{
+    const data=ld(dayStr);
+    if(Object.keys(data).length) backup.days[dayStr]=data;
+  });
+  const json=JSON.stringify(backup,null,2);
+  const today=new Date();today.setHours(0,0,0,0);
+  try{
+    const blob=new Blob([json],{type:'application/json;charset=utf-8;'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=url;a.download='life-tracker-backup-'+ds(today)+'.json';
+    document.body.appendChild(a);a.click();
+    setTimeout(()=>{URL.revokeObjectURL(url);document.body.removeChild(a);},1000);
+    setTimeout(()=>alert('Backup saved: '+Object.keys(backup.days).length+' days'),400);
+  }catch(err){alert('Export failed: '+err.message);}
+}
+function importJSON(event){
+  const file=event.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const backup=JSON.parse(e.target.result);
+      if(!backup.days||typeof backup.days!=='object') throw new Error('Not a valid Life Tracker backup');
+      let days=0,slots=0,skipped=0;
+      Object.entries(backup.days).forEach(([dayStr,newData])=>{
+        if(!/^\d{4}-\d{2}-\d{2}$/.test(dayStr))return;
+        const existing=ld(dayStr);let changed=false;
+        Object.entries(newData).forEach(([time,entry])=>{
+          if(existing[time]){skipped++;}
+          else{existing[time]={cat:entry.cat,note:entry.note||''};changed=true;slots++;}
+        });
+        if(changed){sd(dayStr,existing);days++;}
+      });
+      alert('Restore done! Days='+days+' Slots='+slots+' Skipped='+skipped);
+      renderGrid();g('import-json-file').value='';
+    }catch(err){alert('Restore failed: '+err.message);g('import-json-file').value='';}
+  };
+  reader.readAsText(file);
 }
 
 // ===== EDIT CATEGORY =====

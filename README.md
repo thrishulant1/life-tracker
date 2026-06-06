@@ -20,8 +20,10 @@ Track every 15 minutes of your day, see where your time actually goes, and get a
 - Hold and drag across multiple slots to assign them all at once
 - Long-press a filled slot to edit or clear it
 - Action bar appears when slots are selected — assign or clear in bulk
-- One-tap button to fill all remaining empty slots as Sleep
-- Live clock showing current time and current 15-min slot
+- Tap the live clock bar to instantly log what you're doing right now
+- Copy yesterday's schedule to today with one tap
+- Smart fill — fills remaining empty slots based on your typical daily routine
+- Live clock showing current time, current activity (with blinking dot), and slot progress bar
 - Swipe left/right to navigate between days
 
 ### Timer Mode
@@ -29,6 +31,7 @@ Track every 15 minutes of your day, see where your time actually goes, and get a
 - When it finishes, prompts you to log what you worked on
 
 ### Week View
+- Weekly summary card — score, productive hours, wasted hours, top activities
 - See your full week at a glance — one card per day
 - Per-category time bars showing how you spent each day
 - 30-day productivity heatmap (darker = more productive)
@@ -50,11 +53,14 @@ Track every 15 minutes of your day, see where your time actually goes, and get a
 ### Settings
 - Dark / light mode toggle
 - Sleep warning — excess sleep over 8h counts as wasted time
+- Daily goal — set a target productive % and see a live progress bar on the day view
 - Custom categories — add your own with name, color, and type
 - Edit any existing category
 - Year progress grid — 365 boxes, today highlighted in orange
 - Export all data as CSV (open in Google Sheets for charts)
 - Import CSV to restore from a backup
+- Backup as JSON — full safe export, includes all slots and notes
+- Restore from JSON backup — merges without overwriting existing data
 - Clear all data
 
 ---
@@ -98,12 +104,8 @@ Track every 15 minutes of your day, see where your time actually goes, and get a
 - [ ] Smoother drag-select on touch screens
 
 **Upcoming features**
-- [ ] JSON backup and restore (safer than CSV)
-- [ ] Daily goal — set a target score % and see if you hit it
 - [ ] Monthly calendar view (proper calendar layout)
 - [ ] Reminder notification — "log your last 15 minutes"
-- [ ] Copy yesterday's schedule to today
-- [ ] Weekly auto-summary report
 - [ ] Convert to iOS app using Capacitor
 - [ ] Convert to Android app using Capacitor
 - [ ] Google Drive / iCloud sync
