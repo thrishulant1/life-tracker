@@ -99,15 +99,15 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 /* heatmap */
 .heatmap-wrap{margin:0 16px 16px;}
 .heatmap-title{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:10px;font-family:'DM Mono',monospace;}
-.heatmap-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
-.hm-cell{aspect-ratio:1;border-radius:4px;cursor:pointer;transition:transform 0.1s;}
+.heatmap-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}
+.hm-cell{height:18px;border-radius:3px;cursor:pointer;transition:transform 0.1s;}
 .hm-cell:active{transform:scale(0.9);}
-.hm-day-labels{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:4px;}
+.hm-day-labels{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:3px;}
 .hm-day-lbl{font-size:9px;color:var(--muted);text-align:center;font-family:'DM Mono',monospace;}
-.hm-legend{display:flex;align-items:center;gap:6px;margin-top:8px;justify-content:flex-end;}
+.hm-legend{display:flex;align-items:center;gap:6px;margin-top:6px;justify-content:flex-end;}
 .hm-legend span{font-size:10px;color:var(--muted);}
 .hm-legend-cells{display:flex;gap:3px;}
-.hm-legend-cell{width:12px;height:12px;border-radius:2px;}
+.hm-legend-cell{width:10px;height:10px;border-radius:2px;}
 /* analytics */
 .an-wrap{padding:0 16px;}
 .an-tabs{display:flex;background:var(--surface);border-radius:12px;padding:3px;margin-bottom:14px;gap:3px;}
@@ -337,7 +337,7 @@ body.light .bnav{background:rgba(245,245,240,0.97);}
       </div>
       <button onclick="exportCSV()" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--muted);font-size:11px;padding:6px 12px;cursor:pointer;font-family:'DM Sans',sans-serif;">📊 Export Excel</button>
     </div>
-    <div style="padding:0 16px 14px;">
+    <div style="padding:0 16px 10px;">
       <div class="heatmap-title">30-day productivity heatmap</div>
       <div class="hm-day-labels" id="hm-day-labels"></div>
       <div class="heatmap-grid" id="heatmap"></div>
